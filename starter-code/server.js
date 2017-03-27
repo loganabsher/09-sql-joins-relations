@@ -6,7 +6,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const PORT = process.env.PORT || 3000;
 const app = express();
-const conString = 'postgres:patrick:test@localhost:5432/kilovolt';
+const conString = 'postgres://localhost/kilovolt';
 const client = new pg.Client(conString);
 client.connect();
 client.on('error', function(error) {
@@ -50,7 +50,7 @@ app.post('/articles', function(request, response) {
   // TODO: Add author and "authorUrl" as data for the SQL query to interpolate
     `INSERT INTO
     authors(author, "authorUrl")
-    VALUES ($1, $2);
+    VALUES ($1, $2) ON CONFLICT DO NOTHING;
     `,
     [
       request.body.author,
@@ -62,15 +62,16 @@ app.post('/articles', function(request, response) {
     // TODO: Add the required values from the request as data for the SQL query to interpolate
     client.query(
       `INSERT INTO
-      articles(title, author_id, category, "publishedOn", body)
-      SELECT $1, (SELECT author_id FROM authors WHERE author = $2), $3, $4, $5;
-      `,
+      articles(author_id, title, category, "publishedOn", body)
+      SELECT author_id, $1, $2, $3, $4
+      FROM authors
+      WHERE author = $5;`,
       [
         request.body.title,
-        request.body.author,
         request.body.category,
         request.body.publishedOn,
-        request.body.body
+        request.body.body,
+        request.body.author
       ]
     )
   })
@@ -86,15 +87,32 @@ app.put('/articles/:id', function(request, response) {
   client.query(
   // TODO: Write a SQL query to update an ***author*** record
   // TODO: Add the required values from the request as data for the SQL query to interpolate
-    `Thing1`,
-    [Thing2]
+    `UPDATE authors
+    SET author = $1, "authorUrl" = $2
+    WHERE author_id = $3;
+    `,
+    [
+      request.body.author,
+      request.body.authorUrl,
+      request.body.author_id
+    ]
   )
   .then(function() {
     // TODO: Write a SQL query to update an **article*** record
     // TODO: Add the required values from the request as data for the SQL query to interpolate
     client.query(
-      `Thing1`,
-      [Thing2]
+      `UPDATE articles
+      SET title = $1, category = $2, "publishedOn" = $3, body = $4, author_id = $5
+      WHERE article_id = $6;
+      `,
+      [
+        request.body.title,
+        request.body.category,
+        request.body.publishedOn,
+        request.body.body,
+        request.body.author_id,
+        request.params.id
+      ]
     )
   })
   .then(function() {
